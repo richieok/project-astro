@@ -3,7 +3,7 @@ import { createScene } from './scene.js';
 import { createCamera } from './camera.js';
 import { createRenderer } from './renderer.js';
 import { createControls } from './controls.js';
-import { createHemisphereLight } from './lights.js';
+import { createHemisphereLight, createAmbientLight } from './lights.js';
 import { createIcosahedron } from './objects/icosahedron.js';
 import { loadGLTF } from './loaders/gltf.js';
 import { createStandardMaterial } from './materials.js';
@@ -24,8 +24,11 @@ export function createWorld(container) {
 	const mesh = createIcosahedron();
 	scene.add(mesh);
 
-	const light = createHemisphereLight();
-	scene.add(light);
+	// const light = createHemisphereLight();
+	// scene.add(light);
+
+	const ambientLight = createAmbientLight();
+	scene.add(ambientLight);
 
 	loadGLTF(arrowUrl).then((gltf) => {
 		gltf.scene.position.x += 1.5;
@@ -37,7 +40,7 @@ export function createWorld(container) {
 	let frameId;
 	function animate() {
 		frameId = requestAnimationFrame(animate);
-		mesh.rotation.x += 0.01;
+		// mesh.rotation.x += 0.01;
 		controls.update();
 		renderer.render(scene, camera);
 	}
