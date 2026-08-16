@@ -15,6 +15,7 @@ export function createWorld(container) {
 
 	const scene = createScene();
 	const camera = createCamera({ width, height });
+	camera.position.z = 6
 
 	const renderer = createRenderer({ width, height });
 	container.appendChild(renderer.domElement);
@@ -22,10 +23,12 @@ export function createWorld(container) {
 	const controls = createControls(camera, renderer.domElement);
 
 	const mesh = createIcosahedron();
+	const wireframe = mesh.children[0];
 	scene.add(mesh);
 
-	// const light = createHemisphereLight();
-	// scene.add(light);
+	const hemisphereLight = createHemisphereLight();
+	hemisphereLight.visible = false;
+	scene.add(hemisphereLight);
 
 	const ambientLight = createAmbientLight();
 	scene.add(ambientLight);
@@ -37,10 +40,13 @@ export function createWorld(container) {
 		scene.add(gltf.scene);
 	});
 
+	let autoRotate = false;
 	let frameId;
 	function animate() {
 		frameId = requestAnimationFrame(animate);
-		// mesh.rotation.x += 0.01;
+		if (autoRotate) {
+			mesh.rotation.x += 0.01;
+		}
 		controls.update();
 		renderer.render(scene, camera);
 	}
@@ -64,5 +70,27 @@ export function createWorld(container) {
 		renderer.domElement.remove();
 	}
 
-	return { scene, camera, renderer, controls, mesh, dispose };
+	return {
+		scene,
+		camera,
+		renderer,
+		controls,
+		mesh,
+		dispose,
+		setWireframeVisible(visible) {
+			wireframe.visible = visible;
+		},
+		setAutoRotate(value) {
+			autoRotate = value;
+		},
+		setAmbientLightVisible(visible) {
+			ambientLight.visible = visible;
+		},
+		setHemisphereLightVisible(visible) {
+			hemisphereLight.visible = visible;
+		},
+		setAmbientIntensity(value) {
+			ambientLight.intensity = value;
+		}
+	};
 }
