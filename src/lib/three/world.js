@@ -1,3 +1,4 @@
+import { Vector3 } from 'three';
 import arrowUrl from '$lib/assets/arrow.glb';
 import { createScene } from './scene.js';
 import { createCamera } from './camera.js';
@@ -8,6 +9,8 @@ import { createIcosahedron } from './objects/icosahedron.js';
 import { loadGLTF } from './loaders/gltf.js';
 import { createStandardMaterial } from './materials.js';
 import { applyMaterial } from './utils/applyMaterial.js';
+import { createLoop } from './systems/loop.js';
+import { createGravityOrbit, circularOrbitSpeed } from './physics/gravity.js';
 
 export function createWorld(container) {
 	const width = container.clientWidth;
@@ -33,24 +36,46 @@ export function createWorld(container) {
 	const ambientLight = createAmbientLight();
 	scene.add(ambientLight);
 
-	loadGLTF(arrowUrl).then((gltf) => {
-		gltf.scene.position.x += 1.5;
-		gltf.scene.scale.divideScalar(10);
-		applyMaterial(gltf.scene, createStandardMaterial({ color: 0x0000ff }));
-		scene.add(gltf.scene);
-	});
+	const loop = createLoop({ renderer, scene, camera, controls });
 
 	let autoRotate = false;
-	let frameId;
-	function animate() {
-		frameId = requestAnimationFrame(animate);
-		if (autoRotate) {
-			mesh.rotation.x += 0.01;
+	loop.updatables.push({
+		update(delta) {
+			if (autoRotate) {
+				mesh.rotation.x += 0.6 * delta;
+			}
 		}
-		controls.update();
-		renderer.render(scene, camera);
-	}
-	animate();
+	});
+
+	const mu = 10;
+	const orbitRadius = 1.5;
+	const baseSpeed = circularOrbitSpeed(mu, orbitRadius);
+	let orbit;
+	let orbitEnabled = true;
+	let orbitSpeedFactor = 1;
+	let onOrbitStopCallback;
+	loadGLTF(arrowUrl).then((gltf) => {
+		const arrow = gltf.scene;
+		arrow.position.x += orbitRadius;
+		arrow.scale.divideScalar(10);
+		applyMaterial(arrow, createStandardMaterial({ color: 0x0000ff }));
+		scene.add(arrow);
+
+		orbit = createGravityOrbit(arrow, {
+			center: mesh,
+			mu,
+			initialVelocity: new Vector3(0, 0, -baseSpeed * orbitSpeedFactor),
+			collisionRadius: mesh.geometry.parameters.radius,
+			onCollision() {
+				orbitEnabled = false;
+				onOrbitStopCallback?.();
+			}
+		});
+		orbit.setEnabled(orbitEnabled);
+		loop.updatables.push(orbit);
+	});
+
+	loop.start();
 
 	function onResize() {
 		const w = container.clientWidth;
@@ -63,7 +88,7 @@ export function createWorld(container) {
 	resizeObserver.observe(container);
 
 	function dispose() {
-		cancelAnimationFrame(frameId);
+		loop.stop();
 		resizeObserver.disconnect();
 		controls.dispose();
 		renderer.dispose();
@@ -82,6 +107,21 @@ export function createWorld(container) {
 		},
 		setAutoRotate(value) {
 			autoRotate = value;
+		},
+		setOrbitEnabled(value) {
+			orbitEnabled = value;
+			orbit?.setEnabled(value);
+		},
+		resetOrbit() {
+			orbit?.reset();
+		},
+		setOrbitSpeedFactor(value) {
+			orbitSpeedFactor = value;
+			orbit?.setLaunchSpeed(baseSpeed * value);
+			orbit?.reset();
+		},
+		onOrbitStop(callback) {
+			onOrbitStopCallback = callback;
 		},
 		setAmbientLightVisible(visible) {
 			ambientLight.visible = visible;

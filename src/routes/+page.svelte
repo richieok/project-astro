@@ -10,9 +10,12 @@
     let ambientLightVisible = $state(true);
     let hemisphereLightVisible = $state(false);
     let ambientIntensity = $state(1);
+    let orbitRunning = $state(true);
+    let orbitSpeedFactor = $state(1);
 
     onMount(() => {
         const w = createWorld(container);
+        w.onOrbitStop(() => (orbitRunning = false));
         world = w;
         return w.dispose;
     });
@@ -31,6 +34,12 @@
     });
     $effect(() => {
         world?.setAmbientIntensity(ambientIntensity);
+    });
+    $effect(() => {
+        world?.setOrbitEnabled(orbitRunning);
+    });
+    $effect(() => {
+        world?.setOrbitSpeedFactor(orbitSpeedFactor);
     });
 </script>
 
@@ -58,6 +67,22 @@
             Intensity
             <input type="range" min="0" max="3" step="0.1" bind:value={ambientIntensity} />
         </label>
+        <div class="orbit">
+            Orbit
+            <label class="slider">
+                Launch speed ×{orbitSpeedFactor.toFixed(2)}
+                <input type="range" min="0.5" max="1.5" step="0.05" bind:value={orbitSpeedFactor} />
+            </label>
+            <div class="buttons">
+                <button onclick={() => (orbitRunning = true)} disabled={orbitRunning}>
+                    Start
+                </button>
+                <button onclick={() => (orbitRunning = false)} disabled={!orbitRunning}>
+                    Stop
+                </button>
+                <button onclick={() => world?.resetOrbit()}>Reset</button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -97,5 +122,31 @@
         flex-direction: column;
         align-items: stretch;
         gap: 0.25rem;
+    }
+    .panel .orbit {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    .panel .buttons {
+        display: flex;
+        gap: 0.5rem;
+    }
+    .panel button {
+        flex: 1;
+        padding: 0.25rem 0.5rem;
+        background: rgba(255, 255, 255, 0.15);
+        color: inherit;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 0.25rem;
+        font: inherit;
+        cursor: pointer;
+    }
+    .panel button:hover:not(:disabled) {
+        background: rgba(255, 255, 255, 0.3);
+    }
+    .panel button:disabled {
+        opacity: 0.4;
+        cursor: default;
     }
 </style>
