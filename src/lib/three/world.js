@@ -10,7 +10,15 @@ import { loadGLTF } from './loaders/gltf.js';
 import { createStandardMaterial } from './materials.js';
 import { applyMaterial } from './utils/applyMaterial.js';
 import { createLoop } from './systems/loop.js';
+import { createAxesGizmo } from './helpers/axesGizmo.js';
+import { createVelocityArrows } from './helpers/velocityArrows.js';
 import { createGravityOrbit, circularOrbitSpeed } from './physics/gravity.js';
+
+const VIEW_DIRECTIONS = {
+	front: new Vector3(0, 0, 1),
+	right: new Vector3(1, 0, 0),
+	top: new Vector3(0, 1, 0)
+};
 
 export function createWorld(container) {
 	const width = container.clientWidth;
@@ -38,6 +46,9 @@ export function createWorld(container) {
 
 	const loop = createLoop({ renderer, scene, camera, controls });
 
+	const axesGizmo = createAxesGizmo(camera, controls);
+	loop.overlays.push(axesGizmo);
+
 	let autoRotate = false;
 	loop.updatables.push({
 		update(delta) {
@@ -51,6 +62,7 @@ export function createWorld(container) {
 	const orbitRadius = 1.5;
 	const baseSpeed = circularOrbitSpeed(mu, orbitRadius);
 	let orbit;
+	let velocityArrows;
 	let orbitEnabled = true;
 	let orbitSpeedFactor = 1;
 	let onOrbitStopCallback;
@@ -73,6 +85,10 @@ export function createWorld(container) {
 		});
 		orbit.setEnabled(orbitEnabled);
 		loop.updatables.push(orbit);
+
+		velocityArrows = createVelocityArrows(arrow, orbit.velocity);
+		scene.add(velocityArrows.group);
+		loop.updatables.push(velocityArrows);
 	});
 
 	loop.start();
@@ -90,6 +106,8 @@ export function createWorld(container) {
 	function dispose() {
 		loop.stop();
 		resizeObserver.disconnect();
+		axesGizmo.dispose();
+		velocityArrows?.dispose();
 		controls.dispose();
 		renderer.dispose();
 		renderer.domElement.remove();
@@ -102,6 +120,13 @@ export function createWorld(container) {
 		controls,
 		mesh,
 		dispose,
+		setView(name) {
+			const direction = VIEW_DIRECTIONS[name];
+			if (!direction) return;
+			const distance = camera.position.distanceTo(controls.target);
+			camera.position.copy(controls.target).addScaledVector(direction, distance);
+			camera.lookAt(controls.target);
+		},
 		setWireframeVisible(visible) {
 			wireframe.visible = visible;
 		},
