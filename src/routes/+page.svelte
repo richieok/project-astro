@@ -41,7 +41,16 @@
     $effect(() => {
         world?.setOrbitSpeedFactor(orbitSpeedFactor);
     });
+
+    const viewKeys = { 1: "front", 3: "right", 7: "top" };
+    function handleKeydown(event) {
+        if (event.metaKey || event.ctrlKey || event.altKey) return;
+        const view = viewKeys[event.key];
+        if (view) world?.setView(view);
+    }
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 <div class="ui">
     <div class="viewer" bind:this={container}></div>
