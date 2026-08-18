@@ -66,6 +66,7 @@ export function createWorld(container) {
 	let orbitEnabled = true;
 	let orbitSpeedFactor = 1;
 	let onOrbitStopCallback;
+	let onSceneChangeCallback;
 	loadGLTF(arrowUrl).then((gltf) => {
 		const arrow = gltf.scene;
 		arrow.position.x += orbitRadius;
@@ -89,6 +90,8 @@ export function createWorld(container) {
 		velocityArrows = createVelocityArrows(arrow, orbit.velocity);
 		scene.add(velocityArrows.group);
 		loop.updatables.push(velocityArrows);
+
+		onSceneChangeCallback?.();
 	});
 
 	loop.start();
@@ -147,6 +150,9 @@ export function createWorld(container) {
 		},
 		onOrbitStop(callback) {
 			onOrbitStopCallback = callback;
+		},
+		onSceneChange(callback) {
+			onSceneChangeCallback = callback;
 		},
 		setAmbientLightVisible(visible) {
 			ambientLight.visible = visible;
