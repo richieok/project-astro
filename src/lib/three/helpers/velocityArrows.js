@@ -10,6 +10,7 @@ const MIN_LENGTH = 0.01;
 
 export function createVelocityArrows(body, velocity, { scale = 0.25 } = {}) {
 	const group = new Group();
+	group.name = 'Velocity Vector';
 	const flipped = new Vector3();
 
 	const arrows = AXES.map(({ direction, color }) => {
