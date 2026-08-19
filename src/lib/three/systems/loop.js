@@ -6,6 +6,16 @@ export function createLoop({ renderer, scene, camera, controls }) {
 	const overlays = [];
 	let frameId;
 
+	function handleVisibilityChange() {
+		// Discard time spent hidden so physics doesn't see a huge delta on return.
+		if (document.hidden) {
+			clock.stop();
+		} else {
+			clock.start();
+		}
+	}
+	document.addEventListener('visibilitychange', handleVisibilityChange);
+
 	function tick() {
 		frameId = requestAnimationFrame(tick);
 		const delta = clock.getDelta();
@@ -25,6 +35,7 @@ export function createLoop({ renderer, scene, camera, controls }) {
 		start: tick,
 		stop() {
 			cancelAnimationFrame(frameId);
+			document.removeEventListener('visibilitychange', handleVisibilityChange);
 		}
 	};
 }
