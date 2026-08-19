@@ -12,6 +12,7 @@ import { applyMaterial } from './utils/applyMaterial.js';
 import { createLoop } from './systems/loop.js';
 import { createAxesGizmo } from './helpers/axesGizmo.js';
 import { createVelocityArrows } from './helpers/velocityArrows.js';
+import { createOrbitTrail } from './helpers/orbitTrail.js';
 import { createGravityOrbit, circularOrbitSpeed } from './physics/gravity.js';
 
 const VIEW_DIRECTIONS = {
@@ -63,6 +64,8 @@ export function createWorld(container) {
 	const baseSpeed = circularOrbitSpeed(mu, orbitRadius);
 	let orbit;
 	let velocityArrows;
+	let orbitTrail;
+	let orbitTrailVisible = true;
 	let orbitEnabled = true;
 	let orbitSpeedFactor = 1;
 	let onOrbitStopCallback;
@@ -91,6 +94,11 @@ export function createWorld(container) {
 		scene.add(velocityArrows.group);
 		loop.updatables.push(velocityArrows);
 
+		orbitTrail = createOrbitTrail(arrow);
+		orbitTrail.setVisible(orbitTrailVisible);
+		scene.add(orbitTrail.line);
+		loop.updatables.push(orbitTrail);
+
 		onSceneChangeCallback?.();
 	});
 
@@ -111,6 +119,7 @@ export function createWorld(container) {
 		resizeObserver.disconnect();
 		axesGizmo.dispose();
 		velocityArrows?.dispose();
+		orbitTrail?.dispose();
 		controls.dispose();
 		renderer.dispose();
 		renderer.domElement.remove();
@@ -142,11 +151,17 @@ export function createWorld(container) {
 		},
 		resetOrbit() {
 			orbit?.reset();
+			orbitTrail?.clear();
 		},
 		setOrbitSpeedFactor(value) {
 			orbitSpeedFactor = value;
 			orbit?.setLaunchSpeed(baseSpeed * value);
 			orbit?.reset();
+			orbitTrail?.clear();
+		},
+		setOrbitTrailVisible(visible) {
+			orbitTrailVisible = visible;
+			orbitTrail?.setVisible(visible);
 		},
 		onOrbitStop(callback) {
 			onOrbitStopCallback = callback;
