@@ -1,0 +1,27 @@
+x-logging: &default-logging
+  driver: json-file
+  options: { max-size: 10m, max-file: "3" }
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5173:5173"
+    logging: *default-logging
+    develop:
+      watch:
+        - path: ./package.json
+          action: rebuild
+        - path: ./bun.lock
+          action: rebuild
+        - path: ./src
+          target: /app/src
+          action: sync
+        - path: ./static
+          target: /app/static
+          action: sync
+        - path: ./vite.config.js
+          target: /app/vite.config.js
+          action: sync+restart
