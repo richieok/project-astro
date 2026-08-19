@@ -1,0 +1,13 @@
+x-logging: &default-logging
+  driver: json-file
+  options: { max-size: 10m, max-file: "3" }
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    logging: *default-logging
