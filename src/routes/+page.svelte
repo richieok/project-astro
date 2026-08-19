@@ -17,6 +17,7 @@
     let ambientIntensity = $state(1);
     let orbitRunning = $state(true);
     let orbitSpeedFactor = $state(1);
+    let orbitTrailVisible = $state(true);
 
     onMount(() => {
         const w = createWorld(container);
@@ -46,6 +47,9 @@
     });
     $effect(() => {
         world?.setOrbitSpeedFactor(orbitSpeedFactor);
+    });
+    $effect(() => {
+        world?.setOrbitTrailVisible(orbitTrailVisible);
     });
 
     const viewKeys = { 1: "front", 3: "right", 7: "top" };
@@ -105,6 +109,10 @@
             </label>
             <div class="orbit">
                 Orbit
+                <label>
+                    <input type="checkbox" bind:checked={orbitTrailVisible} />
+                    Trail
+                </label>
                 <label class="slider">
                     Launch speed ×{orbitSpeedFactor.toFixed(2)}
                     <input type="range" min="0.5" max="1.5" step="0.05" bind:value={orbitSpeedFactor} />
