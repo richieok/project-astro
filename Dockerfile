@@ -7,6 +7,7 @@ COPY . .
 RUN bun run build
 
 FROM oven/bun:1.3.14-alpine AS production
+RUN apk upgrade --no-cache
 WORKDIR /app
 COPY --from=build /app/build ./build
 COPY --from=build /app/package.json /app/bun.lock ./
