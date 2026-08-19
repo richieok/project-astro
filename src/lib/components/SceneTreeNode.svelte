@@ -1,4 +1,5 @@
 <script>
+	import SceneTreeNode from './SceneTreeNode.svelte';
 	import { nodeColor } from '$lib/three/utils/nodeColor.js';
 
 	let { object, depth = 0 } = $props();
@@ -26,7 +27,7 @@
 
 {#if hasChildren && expanded}
 	{#each children as child (child.uuid)}
-		<svelte:self object={child} depth={depth + 1} />
+		<SceneTreeNode object={child} depth={depth + 1} />
 	{/each}
 {/if}
 
