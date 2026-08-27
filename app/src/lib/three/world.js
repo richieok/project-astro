@@ -21,50 +21,9 @@ const VIEW_DIRECTIONS = {
 	top: new Vector3(0, 1, 0)
 };
 
-// Drop this into your Three.js scene setup (e.g. a Svelte component's onMount).
-// It listens for deltas from the phone and applies them to your camera/controls.
-//
-// Assumes you're using OrbitControls-style camera manipulation; adapt the
-// rotate/zoom/pan math to whatever control scheme your scene actually uses.
-
-
-
-export function connectSceneControl({ camera, controls }) {
-	const ws = new WebSocket(WS_CONTROL_URL);
-
-	ws.onmessage = (event) => {
-		const msg = JSON.parse(event.data);
-
-		switch (msg.type) {
-			case "rotate":
-				// Cheap orbit: nudge azimuth/polar angle from touch deltas.
-				controls.rotateLeft?.(-msg.dx * 0.005);
-				controls.rotateUp?.(-msg.dy * 0.005);
-				break;
-
-			case "zoom":
-				// scale > 1 = fingers moving apart = zoom in
-				camera.zoom = Math.min(Math.max(camera.zoom * msg.scale, 0.1), 10);
-				camera.updateProjectionMatrix();
-				break;
-
-			case "pan":
-				controls.pan?.(msg.dx * 0.01, msg.dy * 0.01);
-				break;
-		}
-
-		controls.update?.();
-	};
-
-	ws.onclose = () => {
-		// Simple reconnect; back off however you like.
-		setTimeout(() => connectSceneControl({ camera, controls }), 1000);
-	};
-
-	return ws;
-}
-
 export function createWorld(container) {
+
+	let pending = { rotateX: 0, rotateY: 0, zoomScale: 1 };
 	const width = container.clientWidth;
 	const height = container.clientHeight;
 
@@ -88,7 +47,7 @@ export function createWorld(container) {
 	const ambientLight = createAmbientLight();
 	scene.add(ambientLight);
 
-	const loop = createLoop({ renderer, scene, camera, controls });
+	const loop = createLoop({ renderer, scene, camera, controls, pending });
 
 	const axesGizmo = createAxesGizmo(camera, controls);
 	loop.overlays.push(axesGizmo);
@@ -174,6 +133,7 @@ export function createWorld(container) {
 		renderer,
 		controls,
 		mesh,
+		pending,
 		dispose,
 		setView(name) {
 			const direction = VIEW_DIRECTIONS[name];

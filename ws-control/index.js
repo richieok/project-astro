@@ -15,6 +15,16 @@ const TOKEN = process.env.CONTROL_TOKEN ?? null;
 
 const TOPIC = "scene-control";
 
+// Only one controller (phone/tablet) allowed at a time.
+let activeController = null; // holds the connected controller's ws, or null
+
+// The per-message log below fires on every touch move (dozens/sec while
+// dragging) — fine for local debugging, way too noisy for production.
+// Defaults to on unless NODE_ENV=production; override explicitly with DEBUG.
+const DEBUG = process.env.DEBUG != null
+  ? process.env.DEBUG === "true"
+  : process.env.NODE_ENV !== "production";
+
 Bun.serve({
   port: PORT,
 
@@ -57,17 +67,29 @@ Bun.serve({
   websocket: {
     open(ws) {
       ws.subscribe(TOPIC);
+      if (ws.data.role === "controller") {
+        if (activeController && activeController !== ws) {
+          console.log(`[ws-control] kicking previous controller ip=${activeController.data.ip} for new one ip=${ws.data.ip}`);
+          activeController.close(4000, "replaced by new controller");
+        }
+        activeController = ws;
+      }
       console.log(`[ws-control] OPEN  role=${ws.data.role} ip=${ws.data.ip}`);
     },
 
     message(ws, message) {
       // Relay as-is to every other subscriber (phone -> viewer(s)).
       // Keep payloads small: { type: "rotate" | "zoom" | "pan", dx, dy, scale }
-      console.log(`[ws-control] MSG   role=${ws.data.role} ip=${ws.data.ip} -> ${message}`);
+      if (DEBUG) {
+        console.log(`[ws-control] MSG   role=${ws.data.role} ip=${ws.data.ip} -> ${message}`);
+      }
       ws.publish(TOPIC, message);
     },
 
     close(ws, code, reason) {
+      if (ws.data.role === "controller" && activeController === ws) {
+        activeController = null;
+      }
       console.log(`[ws-control] CLOSE role=${ws.data.role} ip=${ws.data.ip} code=${code} reason=${reason}`);
     },
   },

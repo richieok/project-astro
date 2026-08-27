@@ -23,7 +23,7 @@
         const WS_CONTROL_URL = `ws://${window.location.hostname}:8787/?role=viewer&token=devsecret`;
 
         const w = createWorld(container);
-        const { camera, controls } = w;
+        const { camera, controls, pending } = w;
         console.log(camera, controls);
         connectSceneControl({ camera, controls });
         w.onOrbitStop(() => (orbitRunning = false));
@@ -38,26 +38,13 @@
 
                     switch (msg.type) {
                         case "rotate":
-                            // Cheap orbit: nudge azimuth/polar angle from touch deltas.
-                            controls.rotateLeft?.(msg.dx * 0.005);
-                            controls.rotateUp?.(msg.dy * 0.005);
+                            pending.rotateX += msg.dx;
+                            pending.rotateY += msg.dy;
                             break;
-
                         case "zoom":
-                            // scale > 1 = fingers moving apart = zoom in
-                            camera.zoom = Math.min(
-                                Math.max(camera.zoom * msg.scale, 0.1),
-                                10,
-                            );
-                            camera.updateProjectionMatrix();
-                            break;
-
-                        case "pan":
-                            controls.pan?.(msg.dx * 0.01, msg.dy * 0.01);
+                            pending.zoomScale *= msg.scale;
                             break;
                     }
-
-                    controls.update?.();
                 } catch (err) {
                     console.error(
                         "[scene-control] failed to handle message",

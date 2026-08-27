@@ -10,6 +10,7 @@ services:
       - "8787:8787"
     environment:
       - CONTROL_TOKEN=devsecret
+      - NODE_ENV=production
     logging: *default-logging
   app:
     build:

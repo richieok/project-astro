@@ -42,9 +42,14 @@
 
     let ws;
     function connect() {
+      statusEl.textContent = `connecting to ${wsUrl}…`;
       ws = new WebSocket(wsUrl);
       ws.onopen = () => (statusEl.textContent = "connected");
-      ws.onclose = () => {
+      ws.onclose = (event) => {
+        if (event.code === 4000) {
+          statusEl.textContent = "disconnected — another device took over control";
+          return; // don't auto-retry; a manual reload re-claims the slot
+        }
         statusEl.textContent = "disconnected — retrying…";
         setTimeout(connect, 1000);
       };
