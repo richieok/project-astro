@@ -3,6 +3,21 @@ x-logging: &default-logging
   options: { max-size: 10m, max-file: "3" }
 
 services:
+  ws-control:
+    build:
+      context: ./ws-control
+    ports:
+      - "8787:8787"
+    environment:
+      - CONTROL_TOKEN=devsecret
+    logging: *default-logging
+    develop:
+      watch:
+        - path: ./ws-control/index.ts
+          target: /app/index.ts
+          action: sync+restart
+        - path: ./ws-control/package.json
+          action: rebuild
   app:
     build:
       context: ./app

@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Scene Control</title>
+  <style>
+    html, body {
+      margin: 0; height: 100%; overflow: hidden;
+      background: #111; color: #eee;
+      font-family: system-ui, sans-serif;
+      touch-action: none; /* stop the browser from scrolling/zooming the page itself */
+      user-select: none;
+    }
+    #status {
+      position: fixed; top: 8px; left: 8px;
+      font-size: 12px; opacity: 0.6;
+    }
+    #pad {
+      width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; opacity: 0.4; text-align: center; padding: 24px; box-sizing: border-box;
+    }
+  </style>
+</head>
+<body>
+  <div id="status">connecting…</div>
+  <div id="pad">One finger: rotate · Two fingers: pinch to zoom, drag to pan</div>
+
+  <script>
+    const statusEl = document.getElementById("status");
+    const pad = document.getElementById("pad");
+
+    // Same host, ws:// or wss:// depending on the page's own protocol.
+    // Forward whatever ?token=... was used to load this page, if any,
+    // so it doesn't need to be set in two places.
+    const pageParams = new URLSearchParams(location.search);
+    const token = pageParams.get("token");
+    const wsParams = new URLSearchParams({ role: "controller" });
+    if (token) wsParams.set("token", token);
+    const wsUrl = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/?${wsParams}`;
+
+    let ws;
+    function connect() {
+      ws = new WebSocket(wsUrl);
+      ws.onopen = () => (statusEl.textContent = "connected");
+      ws.onclose = () => {
+        statusEl.textContent = "disconnected — retrying…";
+        setTimeout(connect, 1000);
+      };
+      ws.onerror = () => ws.close();
+    }
+    connect();
+
+    function send(msg) {
+      if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
+    }
+
+    // --- Touch handling -----------------------------------------------
+    let lastTouches = [];
+
+    function dist(a, b) {
+      return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    }
+    function mid(a, b) {
+      return { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 };
+    }
+
+    pad.addEventListener("touchstart", (e) => {
+      lastTouches = Array.from(e.touches);
+    }, { passive: true });
+
+    pad.addEventListener("touchmove", (e) => {
+      const touches = Array.from(e.touches);
+
+      if (touches.length === 1 && lastTouches.length === 1) {
+        const dx = touches[0].clientX - lastTouches[0].clientX;
+        const dy = touches[0].clientY - lastTouches[0].clientY;
+        send({ type: "rotate", dx, dy });
+      } else if (touches.length === 2 && lastTouches.length === 2) {
+        const prevDist = dist(lastTouches[0], lastTouches[1]);
+        const currDist = dist(touches[0], touches[1]);
+        const scale = currDist / prevDist;
+
+        const prevMid = mid(lastTouches[0], lastTouches[1]);
+        const currMid = mid(touches[0], touches[1]);
+        const dx = currMid.x - prevMid.x;
+        const dy = currMid.y - prevMid.y;
+
+        send({ type: "zoom", scale });
+        send({ type: "pan", dx, dy });
+      }
+
+      lastTouches = touches;
+      e.preventDefault();
+    }, { passive: false });
+
+    pad.addEventListener("touchend", (e) => {
+      lastTouches = Array.from(e.touches);
+    }, { passive: true });
+  </script>
+</body>
+</html>

@@ -3,6 +3,14 @@ x-logging: &default-logging
   options: { max-size: 10m, max-file: "3" }
 
 services:
+  ws-control:
+    build:
+      context: ./ws-control
+    ports:
+      - "8787:8787"
+    environment:
+      - CONTROL_TOKEN=devsecret
+    logging: *default-logging
   app:
     build:
       context: ./app

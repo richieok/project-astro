@@ -20,9 +20,62 @@
     let orbitTrailVisible = $state(true);
 
     onMount(() => {
+        const WS_CONTROL_URL = `ws://${window.location.hostname}:8787/?role=viewer&token=devsecret`;
+
         const w = createWorld(container);
+        const { camera, controls } = w;
+        console.log(camera, controls);
+        connectSceneControl({ camera, controls });
         w.onOrbitStop(() => (orbitRunning = false));
         w.onSceneChange(() => sceneVersion++);
+
+        function connectSceneControl({ camera, controls }) {
+            const ws = new WebSocket(WS_CONTROL_URL);
+
+            ws.onmessage = (event) => {
+                try {
+                    const msg = JSON.parse(event.data);
+
+                    switch (msg.type) {
+                        case "rotate":
+                            // Cheap orbit: nudge azimuth/polar angle from touch deltas.
+                            controls.rotateLeft?.(msg.dx * 0.005);
+                            controls.rotateUp?.(msg.dy * 0.005);
+                            break;
+
+                        case "zoom":
+                            // scale > 1 = fingers moving apart = zoom in
+                            camera.zoom = Math.min(
+                                Math.max(camera.zoom * msg.scale, 0.1),
+                                10,
+                            );
+                            camera.updateProjectionMatrix();
+                            break;
+
+                        case "pan":
+                            controls.pan?.(msg.dx * 0.01, msg.dy * 0.01);
+                            break;
+                    }
+
+                    controls.update?.();
+                } catch (err) {
+                    console.error(
+                        "[scene-control] failed to handle message",
+                        err,
+                    );
+                }
+            };
+
+            ws.onclose = () => {
+                // Simple reconnect; back off however you like.
+                setTimeout(
+                    () => connectSceneControl({ camera, controls }),
+                    1000,
+                );
+            };
+
+            return ws;
+        }
         world = w;
         return w.dispose;
     });
@@ -74,7 +127,10 @@
 
     {#if world && outlinerVisible}
         <div class="outliner">
-            <SceneOutliner roots={[world.camera, world.scene]} refresh={sceneVersion} />
+            <SceneOutliner
+                roots={[world.camera, world.scene]}
+                refresh={sceneVersion}
+            />
         </div>
     {/if}
 
@@ -105,7 +161,13 @@
             </label>
             <label class="slider">
                 Intensity
-                <input type="range" min="0" max="3" step="0.1" bind:value={ambientIntensity} />
+                <input
+                    type="range"
+                    min="0"
+                    max="3"
+                    step="0.1"
+                    bind:value={ambientIntensity}
+                />
             </label>
             <div class="orbit">
                 Orbit
@@ -115,13 +177,25 @@
                 </label>
                 <label class="slider">
                     Launch speed ×{orbitSpeedFactor.toFixed(2)}
-                    <input type="range" min="0.5" max="1.5" step="0.05" bind:value={orbitSpeedFactor} />
+                    <input
+                        type="range"
+                        min="0.5"
+                        max="1.5"
+                        step="0.05"
+                        bind:value={orbitSpeedFactor}
+                    />
                 </label>
                 <div class="buttons">
-                    <button onclick={() => (orbitRunning = true)} disabled={orbitRunning}>
+                    <button
+                        onclick={() => (orbitRunning = true)}
+                        disabled={orbitRunning}
+                    >
                         Start
                     </button>
-                    <button onclick={() => (orbitRunning = false)} disabled={!orbitRunning}>
+                    <button
+                        onclick={() => (orbitRunning = false)}
+                        disabled={!orbitRunning}
+                    >
                         Stop
                     </button>
                     <button onclick={() => world?.resetOrbit()}>Reset</button>
@@ -152,7 +226,9 @@
         color: #fff;
         border: 1px solid rgba(255, 255, 255, 0.3);
         border-radius: 0.25rem;
-        font: 0.8125rem/1.2 system-ui, sans-serif;
+        font:
+            0.8125rem/1.2 system-ui,
+            sans-serif;
         cursor: pointer;
         backdrop-filter: blur(4px);
     }
@@ -183,7 +259,9 @@
         background: rgba(0, 0, 0, 0.6);
         color: #fff;
         border-radius: 0.5rem;
-        font: 0.875rem/1.2 system-ui, sans-serif;
+        font:
+            0.875rem/1.2 system-ui,
+            sans-serif;
         backdrop-filter: blur(4px);
     }
     .panel label {
