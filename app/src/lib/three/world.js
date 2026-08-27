@@ -22,6 +22,8 @@ const VIEW_DIRECTIONS = {
 };
 
 export function createWorld(container) {
+
+	let pending = { rotateX: 0, rotateY: 0, zoomScale: 1 };
 	const width = container.clientWidth;
 	const height = container.clientHeight;
 
@@ -45,7 +47,7 @@ export function createWorld(container) {
 	const ambientLight = createAmbientLight();
 	scene.add(ambientLight);
 
-	const loop = createLoop({ renderer, scene, camera, controls });
+	const loop = createLoop({ renderer, scene, camera, controls, pending });
 
 	const axesGizmo = createAxesGizmo(camera, controls);
 	loop.overlays.push(axesGizmo);
@@ -131,6 +133,7 @@ export function createWorld(container) {
 		renderer,
 		controls,
 		mesh,
+		pending,
 		dispose,
 		setView(name) {
 			const direction = VIEW_DIRECTIONS[name];
