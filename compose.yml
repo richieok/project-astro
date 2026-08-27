@@ -5,23 +5,23 @@ x-logging: &default-logging
 services:
   app:
     build:
-      context: .
+      context: ./app
       dockerfile: Dockerfile.dev
     ports:
       - "5173:5173"
     logging: *default-logging
     develop:
       watch:
-        - path: ./package.json
+        - path: ./app/package.json
           action: rebuild
-        - path: ./bun.lock
+        - path: ./app/bun.lock
           action: rebuild
-        - path: ./src
+        - path: ./app/src
           target: /app/src
           action: sync
-        - path: ./static
+        - path: ./app/static
           target: /app/static
           action: sync
-        - path: ./vite.config.js
+        - path: ./app/vite.config.js
           target: /app/vite.config.js
           action: sync+restart

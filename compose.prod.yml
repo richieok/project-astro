@@ -5,7 +5,7 @@ x-logging: &default-logging
 services:
   app:
     build:
-      context: .
+      context: ./app
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
