@@ -11,8 +11,10 @@ import { mkdirSync, createWriteStream } from "node:fs";
 
 const PORT = Number(process.env.PORT ?? 8787);
 
-// Logs go to a file under LOG_DIR, which compose mounts as a volume for persistence.
-const LOG_DIR = process.env.LOG_DIR ?? "/app/logs";
+// Logs go to a file under LOG_DIR, which compose points at a mounted volume for
+// persistence. The default sits next to this file rather than at an absolute
+// path, so running outside a container works without setting anything.
+const LOG_DIR = process.env.LOG_DIR ?? `${import.meta.dir}/logs`;
 mkdirSync(LOG_DIR, { recursive: true });
 const logStream = createWriteStream(`${LOG_DIR}/ws-control.log`, { flags: "a" });
 

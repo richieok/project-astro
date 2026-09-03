@@ -11,6 +11,7 @@ services:
     environment:
       - CONTROL_TOKEN=devsecret
       - NODE_ENV=production
+      - LOG_DIR=/app/logs
     volumes:
       - ws-control-logs:/app/logs
     logging: *default-logging
