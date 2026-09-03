@@ -11,6 +11,8 @@ services:
     environment:
       - CONTROL_TOKEN=devsecret
       - NODE_ENV=production
+    volumes:
+      - ws-control-logs:/app/logs
     logging: *default-logging
   app:
     build:
@@ -20,3 +22,6 @@ services:
       - "3000:3000"
     restart: unless-stopped
     logging: *default-logging
+
+volumes:
+  ws-control-logs:

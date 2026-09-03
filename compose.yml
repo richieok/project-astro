@@ -10,6 +10,8 @@ services:
       - "8787:8787"
     environment:
       - CONTROL_TOKEN=devsecret
+    volumes:
+      - ./ws-control/logs:/app/logs
     logging: *default-logging
     develop:
       watch:

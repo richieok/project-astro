@@ -8,6 +8,9 @@ app/.output
 app/.svelte-kit
 app/build
 
+# Logs
+ws-control/logs
+
 # OS
 .DS_Store
 Thumbs.db
