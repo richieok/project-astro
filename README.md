@@ -1,82 +1,125 @@
 # project-astro
 
-A SvelteKit + Three.js playground for an interactive gravity-orbit scene: an icosahedron sits at the center of a simple gravitational field, and a small arrow object orbits it under real physics integration, all viewable and adjustable through an on-screen control panel.
+A SvelteKit + Three.js playground for an interactive gravity-orbit scene: an
+icosahedron sits at the center of a simple gravitational field while a small
+arrow orbits it under real physics integration. You can inspect and adjust the
+scene from an on-screen control panel — or drive the camera from your phone.
 
 ## Stack
 
-- [SvelteKit](https://svelte.dev/docs/kit) (Svelte 5, runes mode)
-- [Three.js](https://threejs.org/) for the WebGL scene
-- [Vite](https://vitejs.dev/) for dev/build tooling
-- [Bun](https://bun.sh/) as the package manager and runtime
+- [SvelteKit](https://svelte.dev/docs/kit) (Svelte 5, runes mode) + [Three.js](https://threejs.org/)
+- [Bun](https://bun.sh/) as package manager and runtime
+- [Docker Compose](https://docs.docker.com/compose/) to run the two services together
 
-## Developing
+## Services
 
-Install dependencies and start the dev server:
+| Service      | Port   | What it is                                             |
+| ------------ | ------ | ------------------------------------------------------ |
+| `app`        | `5173` | The SvelteKit viewer — the 3D scene and control panel   |
+| `ws-control` | `8787` | A WebSocket relay, plus the phone control page it serves |
 
-```sh
-bun install
-bun run dev
-
-# or start the server and open the app in a new browser tab
-bun run dev -- --open
-```
-
-## Building
-
-Create a production build:
+## Running it
 
 ```sh
-bun run build
+./dev.sh        # docker compose up --build --watch
+./dev-down.sh   # tear it down
 ```
 
-Preview it locally with `bun run preview`.
+The viewer is then at <http://localhost:5173>. Source edits sync into the
+containers; `package.json` changes trigger a rebuild.
 
-> To deploy, you may need to install a [SvelteKit adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+`dev.sh` also resolves this machine's LAN address and passes it in as
+`CONTROL_HOST`, which is what the QR code below needs — see
+[Phone control](#phone-control).
 
-## Project structure
+For production images, use `compose.prod.yml` (the app is served on `3000`):
 
-```
-src/
-├── routes/
-│   ├── +page.svelte        # main scene view: 3D viewer + control panel
-│   └── tools/               # tab-panel UI scaffold (WIP)
-└── lib/
-    └── three/
-        ├── world.js         # scene assembly: camera, lights, mesh, orbit, overlays
-        ├── scene.js         # Scene() factory
-        ├── camera.js        # PerspectiveCamera factory
-        ├── renderer.js      # WebGLRenderer factory
-        ├── controls.js      # OrbitControls setup (damped)
-        ├── lights.js        # ambient + hemisphere lights
-        ├── materials.js     # shared material factories
-        ├── objects/
-        │   └── icosahedron.js   # central body + wireframe overlay
-        ├── physics/
-        │   └── gravity.js       # semi-implicit Euler gravity integration
-        ├── helpers/
-        │   ├── axesGizmo.js      # camera-orientation gizmo (bottom-left corner)
-        │   └── velocityArrows.js # x/y/z velocity vectors on the orbiting body
-        ├── loaders/
-        │   └── gltf.js       # GLTF loading helper
-        ├── systems/
-        │   └── loop.js       # render loop: updatables + post-render overlays
-        └── utils/
-            └── applyMaterial.js
+```sh
+docker compose -f compose.prod.yml up --build
 ```
 
-## Scene features
+### Without Docker
 
-The main view (`/`) renders a central icosahedron with a small arrow orbiting it under a simple inverse-square gravity model. The control panel (top-right) lets you toggle:
+Each service runs standalone:
 
-- Wireframe overlay on the central body
-- Auto-rotation of the central body
-- Ambient and hemisphere lighting, with adjustable intensity
-- The orbit: start/stop/reset, and launch speed multiplier
+```sh
+cd app        && bun install && bun run dev     # or: bun run build && bun run preview
+cd ws-control && bun install && bun run dev
+```
 
-Additional viewport aids:
+`ws-control` logs to `$LOG_DIR/ws-control.log` rather than stdout, so per-touch
+logging doesn't drown the console. `LOG_DIR` defaults to a `logs/` directory
+beside `index.js`; compose overrides it to `/app/logs` and mounts that as a
+volume. Set `DEBUG=false` to drop the per-message lines.
 
-- **Axes gizmo** — a small X/Y/Z indicator in the bottom-left corner that mirrors the main camera's orientation, so you can always tell how the scene is currently oriented.
-- **Velocity arrows** — three colored arrows anchored to the orbiting body, one per axis, whose lengths scale with that axis's component of the body's velocity.
-- **View shortcuts** — press `1` for a front view, `3` for a right-side view (+X), or `7` for a top-down view (+Y), each keeping the current zoom distance from the OrbitControls target.
+## Phone control
 
-An in-progress `/tools` route contains a standalone tab-panel component scaffold, not yet wired to the 3D scene.
+`ws-control` is a small pub/sub relay on the `scene-control` topic. Clients
+connect with a `role`:
+
+- **controller** — your phone, sending touch deltas
+- **viewer** — the Three.js scene, applying them
+
+Messages are relayed as-is to everyone else on the topic; there's no state or
+persistence. Only one controller is allowed at a time — a new one kicks the
+previous with close code `4000`. `CONTROL_TOKEN` (set to `devsecret` in
+`compose.yml`) is a shared secret so nobody else on your network can drive the
+scene; leave it unset to disable the check.
+
+To connect a phone, click **Phone control** at the bottom of the control panel
+and scan the QR code, or open the URL directly:
+
+```
+http://<host>:8787/control?token=devsecret
+```
+
+The QR encodes your machine's LAN address, which the browser can't discover on
+its own — `vite.config.js` resolves it at config time, either from `CONTROL_HOST`
+(how `dev.sh` passes the host's address into the container) or from the local
+network interfaces when running outside Docker. The popover's **Host** field
+overrides it if the wrong interface wins.
+
+On the phone: one finger rotates, two fingers pinch to zoom. Two-finger drag
+sends a `pan` message that the viewer doesn't act on yet.
+
+## The scene
+
+The main view (`/`) renders the central icosahedron and its orbiting arrow.
+
+**Control panel** (top-right) — wireframe overlay, auto-rotation, ambient and
+hemisphere lights with an intensity slider, and the orbit: trail toggle, launch
+speed multiplier, and start/stop/reset.
+
+**Scene outliner** (top-left) — a live tree of the camera and scene graph.
+
+**Viewport aids** — an axes gizmo in the bottom-left corner mirroring the camera's
+orientation, and three colored arrows on the orbiting body whose lengths track
+its per-axis velocity.
+
+**Keyboard** — `1` front, `3` right (+X), `7` top (+Y), each keeping the current
+distance from the OrbitControls target. `Escape` closes the QR popover.
+
+## Layout
+
+```
+app/                        SvelteKit viewer
+├── src/routes/
+│   ├── +page.svelte        the scene view: 3D viewer + control panel
+│   └── tools/              tab-panel scaffold, not yet wired to the scene
+├── src/lib/components/     SceneOutliner, SceneTreeNode, QrCode
+├── src/lib/three/
+│   ├── world.js            scene assembly and the public control API
+│   ├── objects/            icosahedron.js — central body + wireframe overlay
+│   ├── physics/gravity.js  semi-implicit Euler integration
+│   ├── helpers/            axes gizmo, velocity arrows, orbit trail
+│   ├── systems/loop.js     render loop: updatables + post-render overlays
+│   └── camera.js, controls.js, lights.js, materials.js, renderer.js, scene.js
+└── vite.config.js          also resolves CONTROL_HOST for the QR code
+
+ws-control/                 WebSocket relay
+├── index.js                the relay itself
+└── public/control.html     the phone control page, served at /control
+
+compose.yml                 dev stack       compose.prod.yml   production stack
+dev.sh / dev-down.sh        start / stop
+```

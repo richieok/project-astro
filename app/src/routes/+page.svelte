@@ -2,6 +2,7 @@
     import { onMount } from "svelte";
     import { createWorld } from "$lib/three/world.js";
     import SceneOutliner from "$lib/components/SceneOutliner.svelte";
+    import QrCode from "$lib/components/QrCode.svelte";
 
     let container;
     let world = $state(null);
@@ -9,6 +10,29 @@
 
     let outlinerVisible = $state(true);
     let panelVisible = $state(true);
+
+    // Shared with ws-control via CONTROL_TOKEN in compose.yml.
+    const CONTROL_TOKEN = "devsecret";
+    const CONTROL_PORT = 8787;
+
+    // The machine's LAN address, resolved at config time by vite.config.js — the
+    // browser itself can only ever report the hostname that was typed into the
+    // address bar, which is "localhost" often enough to be useless to a phone.
+    const LAN_HOST = import.meta.env.VITE_CONTROL_HOST ?? "";
+
+    const isLoopback = (host) => /^(localhost|127\.0\.0\.1|\[::1\])$/.test(host);
+
+    // Host the phone should dial to reach ws-control. Editable, because neither
+    // source is right on every machine — a VPN or a second NIC can win the
+    // interface list, and the prod compose file doesn't set CONTROL_HOST at all.
+    let controlHost = $state("");
+    let qrVisible = $state(false);
+    let qrWrapper = $state(null);
+
+    const controlUrl = $derived(
+        `http://${controlHost}:${CONTROL_PORT}/control?token=${CONTROL_TOKEN}`,
+    );
+    const hostIsLoopback = $derived(isLoopback(controlHost));
 
     let wireframeVisible = $state(true);
     let autoRotate = $state(false);
@@ -20,7 +44,12 @@
     let orbitTrailVisible = $state(true);
 
     onMount(() => {
-        const WS_CONTROL_URL = `ws://${window.location.hostname}:8787/?role=viewer&token=devsecret`;
+        // Browsing at a real address already means it's reachable, so only fall
+        // back to the injected LAN address when this page is on loopback.
+        const { hostname } = window.location;
+        controlHost = isLoopback(hostname) ? LAN_HOST || hostname : hostname;
+
+        const WS_CONTROL_URL = `ws://${window.location.hostname}:${CONTROL_PORT}/?role=viewer&token=${CONTROL_TOKEN}`;
 
         const w = createWorld(container);
         const { camera, controls, pending } = w;
@@ -95,12 +124,25 @@
     const viewKeys = { 1: "front", 3: "right", 7: "top" };
     function handleKeydown(event) {
         if (event.metaKey || event.ctrlKey || event.altKey) return;
+        if (event.key === "Escape") {
+            qrVisible = false;
+            return;
+        }
+        // The view shortcuts are bare digits, so stay out of the way while
+        // someone is typing a host into the QR popover.
+        if (event.target instanceof HTMLInputElement && event.target.type === "text")
+            return;
         const view = viewKeys[event.key];
         if (view) world?.setView(view);
     }
+
+    // Light dismiss, the way a popover is expected to behave.
+    function handlePointerDown(event) {
+        if (qrVisible && !qrWrapper?.contains(event.target)) qrVisible = false;
+    }
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
+<svelte:window onkeydown={handleKeydown} onpointerdown={handlePointerDown} />
 
 <div class="ui">
     <div class="viewer" bind:this={container}></div>
@@ -187,6 +229,39 @@
                     </button>
                     <button onclick={() => world?.resetOrbit()}>Reset</button>
                 </div>
+            </div>
+
+            <div class="phone" bind:this={qrWrapper}>
+                <button
+                    class="phone-toggle"
+                    aria-expanded={qrVisible}
+                    onclick={() => (qrVisible = !qrVisible)}
+                >
+                    Phone control
+                </button>
+
+                {#if qrVisible}
+                    <div class="qr-popover">
+                        <QrCode text={controlUrl} />
+                        <label class="host">
+                            Host
+                            <input
+                                type="text"
+                                bind:value={controlHost}
+                                spellcheck="false"
+                                autocapitalize="off"
+                                autocorrect="off"
+                            />
+                        </label>
+                        <p class="url">{controlUrl}</p>
+                        {#if hostIsLoopback}
+                            <p class="hint">
+                                Your phone can't reach {controlHost} — put this
+                                machine's LAN address here instead.
+                            </p>
+                        {/if}
+                    </div>
+                {/if}
             </div>
         </div>
     {/if}
@@ -287,5 +362,52 @@
     .panel button:disabled {
         opacity: 0.4;
         cursor: default;
+    }
+    .phone {
+        position: relative;
+    }
+    .phone-toggle {
+        width: 100%;
+    }
+    /* The panel is pinned to the right edge, so the popover opens inward. */
+    .qr-popover {
+        position: absolute;
+        top: 0;
+        right: calc(100% + 0.75rem);
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        width: 13rem;
+        padding: 0.75rem;
+        background: rgba(0, 0, 0, 0.85);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 0.5rem;
+        backdrop-filter: blur(4px);
+    }
+    .qr-popover .host {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.25rem;
+    }
+    .qr-popover input {
+        padding: 0.25rem 0.4rem;
+        background: rgba(255, 255, 255, 0.1);
+        color: inherit;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 0.25rem;
+        font: inherit;
+    }
+    .qr-popover .url,
+    .qr-popover .hint {
+        font-size: 0.6875rem;
+        line-height: 1.35;
+        overflow-wrap: anywhere;
+    }
+    .qr-popover .url {
+        opacity: 0.6;
+        font-family: ui-monospace, monospace;
+    }
+    .qr-popover .hint {
+        color: #ffd08a;
     }
 </style>
